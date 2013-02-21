@@ -5,7 +5,7 @@ namespace :quick_jobs do
 
     while true do
       Job.waiting.each do |job|
-        Rails.logger.info "#{job.print}"
+        Rails.logger.info "#{job.summary}"
         job.run
         Rails.logger.info "done"
       end

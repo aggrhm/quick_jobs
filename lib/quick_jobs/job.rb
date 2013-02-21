@@ -67,7 +67,7 @@ module QuickJobs
       self.destroy
     end
 
-    def print
+    def summary
       "JOB[#{self.queue_name}|#{self.id.to_s}]: #{self.class_name}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
     end
 
