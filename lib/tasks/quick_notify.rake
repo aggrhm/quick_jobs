@@ -5,9 +5,15 @@ namespace :quick_jobs do
 
     while true do
       Job.waiting.each do |job|
-        Rails.logger.info "#{job.summary}"
-        job.run
-        Rails.logger.info "done"
+        begin
+          Rails.logger.info "#{job.summary}"
+          job.run
+          Rails.logger.info "done"
+        rescue Exception => e
+          job.state!(:error)
+          job.save
+          Rails.logger.info e
+        end
       end
       sleep 3
     end

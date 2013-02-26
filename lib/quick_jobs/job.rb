@@ -1,7 +1,7 @@
 module QuickJobs
   module Job
 
-    STATES = {:waiting => 1, :running => 2, :done => 3}
+    STATES = {:waiting => 1, :running => 2, :done => 3, :error => 4}
 
     def self.included(base)
       base.extend ClassMethods
