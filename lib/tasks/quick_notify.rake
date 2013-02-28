@@ -3,7 +3,7 @@ namespace :quick_jobs do
     Rails.logger = Logger.new(ENV['LOG_FILE'] || STDOUT)
     Rails.logger.info "Starting quick_jobs processor"
 
-    while true do
+    while Process.ppid != 1 do
       Job.waiting.each do |job|
         begin
           Rails.logger.info "#{job.summary}"
