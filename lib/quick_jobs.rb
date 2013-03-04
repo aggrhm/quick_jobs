@@ -7,7 +7,7 @@ module QuickJobs
   if defined?(Rails)
     class Railtie < Rails::Railtie
       rake_tasks do
-        load 'tasks/quick_notify.rake'
+        load 'tasks/quick_jobs.rake'
       end
     end
   end

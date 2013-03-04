@@ -62,9 +62,14 @@ module QuickJobs
       self.save
       base = Object.const_get(self.class_name)
       base = base.find(self.instance_id) unless self.instance_id.nil?
-      base.send self.method_name.to_sym, *self.args
-      self.state! :done
-      self.destroy
+      if base.respond_to? self.method_name.to_sym
+        base.send self.method_name.to_sym, *self.args
+        self.state! :done
+        self.destroy
+      else
+        self.state! :error
+        self.save
+      end
     end
 
     def summary
