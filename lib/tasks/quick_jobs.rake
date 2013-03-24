@@ -2,6 +2,7 @@ namespace :quick_jobs do
   task :process => :environment do
     Rails.logger = Logger.new(ENV['LOG_FILE'] || STDOUT)
     Rails.logger.info "Starting quick_jobs processor"
+    Moped.logger = nil
 
     begin
       while Process.ppid != 1 do
@@ -19,8 +20,9 @@ namespace :quick_jobs do
         sleep 3
       end
     rescue Exception => e
-      Rails.logger.info "Process error. Reason:"
+      Rails.logger.info "ERROR. Reason:"
       Rails.logger.info e
+      Rails.logger.info e.backtrace.join("\n\t")
     end
   end
 end

@@ -34,7 +34,7 @@ module QuickJobs
         elsif db == :mongoid
           field :qn, as: :queue_name, type: String
           field :cn, as: :class_name, type: String
-          field :iid, as: :instance_id, type: ObjectId
+          field :iid, as: :instance_id, type: Moped::BSON::ObjectId
           field :mn, as: :method_name, type: String
           field :ars, as: :args, type: Array
           field :st, as: :state, type: Integer
@@ -50,7 +50,7 @@ module QuickJobs
           where(:st => STATES[:waiting])
         }
         scope :ready, lambda {
-          where(:rna => {'$gte' => Time.now})
+          where(:rna => {'$lte' => Time.now})
         }
       end
 
@@ -79,7 +79,7 @@ module QuickJobs
       end
 
       def cancel(job_id)
-        job = Job.find(job_id)
+        job = self.find(job_id)
         job.destroy
       end
 
