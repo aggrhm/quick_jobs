@@ -80,7 +80,8 @@ module QuickJobs
 
       def cancel(job_id)
         job = self.find(job_id)
-        job.destroy
+        job.destroy unless job.nil?
+        return job
       end
 
     end
