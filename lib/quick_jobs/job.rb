@@ -10,33 +10,52 @@ module QuickJobs
     module ClassMethods
 
       def quick_jobs_job_keys_for(db)
-        key :qn,  String
-        key :cn,  String
-        key :iid, ObjectId
-        key :mn,  String
-        key :ars, Array
-        key :st,  Integer
-        key :oph, Hash
+        if db == :mongomapper
+          key :qn,  String
+          key :cn,  String
+          key :iid, ObjectId
+          key :mn,  String
+          key :ars, Array
+          key :st,  Integer
+          key :oph, Hash
+          key :rna, Time
 
-        timestamps!
+          timestamps!
 
-        attr_alias :queue_name, :qn
-        attr_alias :class_name, :cn
-        attr_alias :instance_id, :iid
-        attr_alias :method_name, :mn
-        attr_alias :args, :ars
-        attr_alias :state, :st
-        attr_alias :opts, :oph
+          attr_alias :queue_name, :qn
+          attr_alias :class_name, :cn
+          attr_alias :instance_id, :iid
+          attr_alias :method_name, :mn
+          attr_alias :args, :ars
+          attr_alias :state, :st
+          attr_alias :opts, :oph
+          attr_alias :run_at, :rna
+
+        elsif db == :mongoid
+          field :qn, as: :queue_name, type: String
+          field :cn, as: :class_name, type: String
+          field :iid, as: :instance_id, type: ObjectId
+          field :mn, as: :method_name, type: String
+          field :ars, as: :args, type: Array
+          field :st, as: :state, type: Integer
+          field :oph, as: :opts, type: Hash
+          field :rna, as: :run_at, type: Time
+
+          mongoid_timestamps!
+        end
 
         enum_methods! :state, STATES
 
         scope :waiting, lambda{
           where(:st => STATES[:waiting])
         }
+        scope :ready, lambda {
+          where(:rna => {'$gte' => Time.now})
+        }
       end
 
       # add a job to a queue to be ran by a background runner
-      def run_later(queue_name, instance, method_name, args=[], opts={})
+      def run_later(queue_name, instance, method_name, args=[], run_at=nil, opts={})
         job = self.new
         job.queue_name = queue_name.to_s.strip.downcase
         if instance.class == Class
@@ -49,9 +68,19 @@ module QuickJobs
         job.method_name = method_name.to_s
         job.args = args.is_a?(Array) ? args : [args]
         job.opts = opts
+        if run_at.nil?
+          job.run_at = Time.now
+        else
+          job.run_at = run_at
+        end
         job.state! :waiting
         job.save
         return job
+      end
+
+      def cancel(job_id)
+        job = Job.find(job_id)
+        job.destroy
       end
 
     end
