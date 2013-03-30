@@ -2,7 +2,9 @@ namespace :quick_jobs do
   task :process => :environment do
     Rails.logger = Logger.new(ENV['LOG_FILE'] || STDOUT)
     Rails.logger.info "Starting quick_jobs processor"
-    Moped.logger = nil
+    if defined?(Moped)
+      Moped.logger = nil
+    end
 
     begin
       while Process.ppid != 1 do
