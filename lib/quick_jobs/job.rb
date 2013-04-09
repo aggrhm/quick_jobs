@@ -23,7 +23,7 @@ module QuickJobs
           timestamps!
 
           attr_alias :queue_name, :qn
-          attr_alias :class_name, :cn
+          attr_alias :instance_class, :cn
           attr_alias :instance_id, :iid
           attr_alias :method_name, :mn
           attr_alias :args, :ars
@@ -33,7 +33,7 @@ module QuickJobs
 
         elsif db == :mongoid
           field :qn, as: :queue_name, type: String
-          field :cn, as: :class_name, type: String
+          field :cn, as: :instance_class, type: String
           field :iid, as: :instance_id, type: Moped::BSON::ObjectId
           field :mn, as: :method_name, type: String
           field :ars, as: :args, type: Array
@@ -59,10 +59,10 @@ module QuickJobs
         job = self.new
         job.queue_name = queue_name.to_s.strip.downcase
         if instance.class == Class
-          job.class_name = instance.to_s
+          job.instance_class = instance.to_s
           job.instance_id = nil
         else
-          job.class_name = instance.class.to_s
+          job.instance_class = instance.class.to_s
           job.instance_id = instance.id
         end
         job.method_name = method_name.to_s
@@ -75,6 +75,7 @@ module QuickJobs
         end
         job.state! :waiting
         job.save
+        #puts job.inspect
         return job
       end
 
@@ -90,7 +91,7 @@ module QuickJobs
     def run
       self.state! :running
       self.save
-      base = Object.const_get(self.class_name)
+      base = Object.const_get(self.instance_class)
       base = base.find(self.instance_id) unless self.instance_id.nil?
       if base.respond_to? self.method_name.to_sym
         base.send self.method_name.to_sym, *self.args
@@ -103,7 +104,7 @@ module QuickJobs
     end
 
     def summary
-      "JOB[#{self.queue_name}|#{self.id.to_s}]: #{self.class_name}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
+      "JOB[#{self.queue_name}|#{self.id.to_s}]: #{self.instance_class}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
     end
 
   end
