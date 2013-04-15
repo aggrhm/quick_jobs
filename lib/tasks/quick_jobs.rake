@@ -5,6 +5,7 @@ namespace :quick_jobs do
     if defined?(Moped)
       Moped.logger = nil
     end
+    env = ENV['RAILS_ENV'] || 'production'
 
     begin
       while Process.ppid != 1 do

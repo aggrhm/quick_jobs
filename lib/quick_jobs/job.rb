@@ -19,6 +19,7 @@ module QuickJobs
           key :st,  Integer
           key :oph, Hash
           key :rna, Time
+          key :env, String
 
           timestamps!
 
@@ -40,6 +41,7 @@ module QuickJobs
           field :st, as: :state, type: Integer
           field :oph, as: :opts, type: Hash
           field :rna, as: :run_at, type: Time
+          field :env, as: :env, type: String
 
           mongoid_timestamps!
         end
@@ -51,6 +53,9 @@ module QuickJobs
         }
         scope :ready, lambda {
           where(:rna => {'$lte' => Time.now})
+        }
+        scope :with_env, lambda {|env|
+          where(:env => env)
         }
       end
 
@@ -73,6 +78,7 @@ module QuickJobs
         else
           job.run_at = run_at
         end
+        job.env = Rails.env.to_s
         job.state! :waiting
         job.save
         #puts job.inspect
