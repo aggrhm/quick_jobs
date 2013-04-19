@@ -11,6 +11,8 @@ namespace :quick_jobs do
       while Process.ppid != 1 do
         Job.waiting.ready.each do |job|
           begin
+            status = job.set_running!
+            next if !status   # skip if can't claim
             Rails.logger.info "#{job.summary}"
             job.run
             Rails.logger.info "done"

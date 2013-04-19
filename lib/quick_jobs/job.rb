@@ -93,6 +93,17 @@ module QuickJobs
 
     end
 
+    def set_running!
+      # check if running
+      self.reload
+      return false if self.state? :running
+      if defined? MongoMapper
+        self.set(:st => STATES[:running])
+      elsif defined? Mongoid
+        self.set(:st, STATES[:running])
+      end
+      return true
+    end
 
     def run
       self.state! :running
@@ -110,7 +121,7 @@ module QuickJobs
     end
 
     def summary
-      "JOB[#{self.queue_name}|#{self.id.to_s}]: #{self.instance_class}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
+      "JOB[#{self.env}|#{self.queue_name}|#{self.id.to_s}]: #{self.instance_class}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
     end
 
   end
