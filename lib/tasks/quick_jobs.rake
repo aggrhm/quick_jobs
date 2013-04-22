@@ -20,6 +20,7 @@ namespace :quick_jobs do
             job.state!(:error)
             job.save
             Rails.logger.info e
+            Rails.logger.info e.backtrace.join("\n\t")
           end
         end
         sleep 3
