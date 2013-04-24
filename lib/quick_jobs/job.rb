@@ -55,7 +55,7 @@ module QuickJobs
           where(:rna => {'$lte' => Time.now})
         }
         scope :with_env, lambda {|env|
-          where(:env => env)
+          where(:env => env.to_s.strip.downcase)
         }
       end
 
@@ -78,7 +78,7 @@ module QuickJobs
         else
           job.run_at = run_at
         end
-        job.env = Rails.env.to_s
+        job.env = Rails.env.to_s.strip.downcase
         job.state! :waiting
         job.save
         #puts job.inspect
