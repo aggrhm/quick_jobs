@@ -14,6 +14,14 @@ module QuickJobs
 
   class << self
 
+    def without_identity_map(&block)
+      if defined?(MongoMapper)
+        MongoMapper::Plugins::IdentityMap.without(&block)
+      elsif defined?(Mongoid)
+        Mongoid::unit_of_work({disable: :all}, &block)
+      end
+    end
+
   end
 
 end

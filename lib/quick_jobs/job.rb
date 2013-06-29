@@ -106,17 +106,20 @@ module QuickJobs
     end
 
     def run
-      self.state! :running
-      self.save
-      base = Object.const_get(self.instance_class)
-      base = base.find(self.instance_id) unless self.instance_id.nil?
-      if base.respond_to? self.method_name.to_sym
-        base.send self.method_name.to_sym, *self.args
-        self.state! :done
-        self.destroy
-      else
-        self.state! :error
+      # disable identity map
+      QuickJobs.without_identity_map do
+        self.state! :running
         self.save
+        base = Object.const_get(self.instance_class)
+        base = base.find(self.instance_id) unless self.instance_id.nil?
+        if base.respond_to? self.method_name.to_sym
+          base.send self.method_name.to_sym, *self.args
+          self.state! :done
+          self.destroy
+        else
+          self.state! :error
+          self.save
+        end
       end
     end
 
