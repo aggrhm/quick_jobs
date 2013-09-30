@@ -20,6 +20,7 @@ module QuickJobs
           key :oph, Hash
           key :rna, Time
           key :env, String
+          key :er,  String
 
           timestamps!
 
@@ -31,6 +32,7 @@ module QuickJobs
           attr_alias :state, :st
           attr_alias :opts, :oph
           attr_alias :run_at, :rna
+          attr_alias :error, :er
 
         elsif db == :mongoid
           field :qn, as: :queue_name, type: String
@@ -42,6 +44,7 @@ module QuickJobs
           field :oph, as: :opts, type: Hash
           field :rna, as: :run_at, type: Time
           field :env, as: :env, type: String
+          field :er, as: :error, type: String
 
           mongoid_timestamps!
         end
@@ -118,6 +121,8 @@ module QuickJobs
           self.destroy
         else
           self.state! :error
+          self.error = "Base did not respond to method #{self.method_name.to_sym}."
+          self.error += " (Base is nil)" if base.nil?
           self.save
         end
       end

@@ -1,11 +1,11 @@
 namespace :quick_jobs do 
   task :process => :environment do
     Rails.logger = Logger.new(ENV['LOG_FILE'] || STDOUT)
-    Rails.logger.info "Starting quick_jobs processor"
     if defined?(Moped)
       Moped.logger = nil
     end
     env = ENV['RAILS_ENV'] || 'production'
+    Rails.logger.info "Starting quick_jobs processor for #{env}"
 
     begin
       while Process.ppid != 1 do
@@ -17,7 +17,8 @@ namespace :quick_jobs do
             job.run
             Rails.logger.info "done"
           rescue Exception => e
-            job.state!(:error)
+            job.state! :error
+            job.error = e.message
             job.save
             Rails.logger.info e
             Rails.logger.info e.backtrace.join("\n\t")
