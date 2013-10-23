@@ -15,12 +15,16 @@ namespace :quick_jobs do
             next if !status   # skip if can't claim
             Rails.logger.info "#{job.summary}"
             job.run
-            Rails.logger.info "done"
+            if job.state? :error
+              Rails.logger.info "ERROR: #{job.error}"
+            else
+              Rails.logger.info "done"
+            end
           rescue Exception => e
             job.state! :error
             job.error = e.message
             job.save
-            Rails.logger.info e
+            Rails.logger.info "ERROR: #{job.error}"
             Rails.logger.info e.backtrace.join("\n\t")
           end
         end
