@@ -94,7 +94,34 @@ module QuickJobs
         return job
       end
 
+      def process_ready_jobs(opts={})
+        env = opts[:environment]
+        self.with_env(env).waiting.ready.each do |job|
+          QuickUtils.unit_of_work do
+            begin
+              status = job.set_running!
+              next if !status   # skip if can't claim
+              Rails.logger.info "#{job.summary}"
+              job.run
+              if job.state? :error
+                Rails.logger.info "ERROR: #{job.error}"
+              else
+                Rails.logger.info "done"
+              end
+            rescue Exception => e
+              job.state! :error
+              job.error = e.message
+              job.save
+              Rails.logger.info "ERROR: #{job.error}"
+              Rails.logger.info e.backtrace.join("\n\t")
+            end
+          end
+        end
+      end
+
     end
+
+    ## INSTANCE METHODS
 
     def set_running!
       # check if running
@@ -109,22 +136,19 @@ module QuickJobs
     end
 
     def run
-      # disable identity map
-      QuickJobs.without_identity_map do
-        self.state! :running
+      self.state! :running
+      self.save
+      base = Object.const_get(self.instance_class)
+      base = base.find(self.instance_id) unless self.instance_id.nil?
+      if base.respond_to? self.method_name.to_sym
+        base.send self.method_name.to_sym, *self.args
+        self.state! :done
+        self.destroy
+      else
+        self.state! :error
+        self.error = "Base did not respond to method #{self.method_name.to_sym}."
+        self.error += " (Base is nil)" if base.nil?
         self.save
-        base = Object.const_get(self.instance_class)
-        base = base.find(self.instance_id) unless self.instance_id.nil?
-        if base.respond_to? self.method_name.to_sym
-          base.send self.method_name.to_sym, *self.args
-          self.state! :done
-          self.destroy
-        else
-          self.state! :error
-          self.error = "Base did not respond to method #{self.method_name.to_sym}."
-          self.error += " (Base is nil)" if base.nil?
-          self.save
-        end
       end
     end
 
