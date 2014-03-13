@@ -37,7 +37,7 @@ module QuickJobs
         elsif db == :mongoid
           field :qn, as: :queue_name, type: String
           field :cn, as: :instance_class, type: String
-          field :iid, as: :instance_id, type: Moped::BSON::ObjectId
+          field :iid, as: :instance_id
           field :mn, as: :method_name, type: String
           field :ars, as: :args, type: Array
           field :st, as: :state, type: Integer
