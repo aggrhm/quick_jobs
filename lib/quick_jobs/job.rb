@@ -46,6 +46,9 @@ module QuickJobs
           field :env, as: :env, type: String
           field :er, as: :error, type: String
 
+          field :st_at, as: :started_at, type: Time
+          field :fn_at, as: :finished_at, type: Time
+
           mongoid_timestamps!
         end
 
@@ -111,9 +114,12 @@ module QuickJobs
             rescue Exception => e
               job.state! :error
               job.error = e.message
-              job.save
               Rails.logger.info "ERROR: #{job.error}"
               Rails.logger.info e.backtrace.join("\n\t")
+            ensure
+              job.finished_at = Time.now
+              job.save
+              job.handle_completed
             end
           end
         end
@@ -136,6 +142,7 @@ module QuickJobs
     end
 
     def run
+      self.started_at = Time.now
       self.state! :running
       self.save
       base = Object.const_get(self.instance_class)
@@ -154,6 +161,15 @@ module QuickJobs
 
     def summary
       "#{Time.now.to_s}: JOB[#{self.env}|#{self.queue_name}|#{self.id.to_s}]: #{self.instance_class}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
+    end
+
+    def handle_completed
+      # override with custom handler
+    end
+
+    def run_time
+      return nil if (self.started_at.nil? || self.finished_at.nil?)
+      return self.finished_at - self.started_at
     end
 
   end
