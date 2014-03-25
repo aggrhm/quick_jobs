@@ -172,5 +172,19 @@ module QuickJobs
       return self.finished_at - self.started_at
     end
 
+    def to_api(opt=:default)
+      ret = {}
+      ret[:id] = self.id.to_s
+      ret[:queue_name] = self.queue_name
+      ret[:instance_class] = self.instance_class.to_s
+      ret[:instance_id] = self.instance_id.to_s
+      ret[:method_name] = self.method_name
+      ret[:started_at] = self.started_at.to_i
+      ret[:finished_at] = self.finished_at.to_i
+      ret[:state] = self.state
+      ret[:error] = self.error
+      return ret
+    end
+
   end
 end
