@@ -105,12 +105,10 @@ module QuickJobs
               status = job.set_running!
               next if !status   # skip if can't claim
               Rails.logger.info "#{job.summary}"
+              job.started_at = Time.now
               job.run
-              if job.state? :error
-                Rails.logger.info "ERROR: #{job.error}"
-              else
-                Rails.logger.info "done"
-              end
+              job.state! :done
+              Rails.logger.info "done"
             rescue Exception => e
               job.state! :error
               job.error = e.message
@@ -119,7 +117,9 @@ module QuickJobs
             ensure
               job.finished_at = Time.now
               job.save
+              job.write_to_log
               job.handle_completed
+              job.destroy
             end
           end
         end
@@ -136,26 +136,24 @@ module QuickJobs
       if defined? MongoMapper
         self.set(:st => STATES[:running])
       elsif defined? Mongoid
-        self.set(:st, STATES[:running])
+        if Mongoid::VERSION[0].to_i >= 4
+          self.set(:st => STATES[:running])
+        else
+          self.set(:st, STATES[:running])
+        end
       end
       return true
     end
 
     def run
-      self.started_at = Time.now
-      self.state! :running
-      self.save
       base = Object.const_get(self.instance_class)
       base = base.find(self.instance_id) unless self.instance_id.nil?
       if base.respond_to? self.method_name.to_sym
         base.send self.method_name.to_sym, *self.args
-        self.state! :done
-        self.destroy
       else
-        self.state! :error
-        self.error = "Base did not respond to method #{self.method_name.to_sym}."
-        self.error += " (Base is nil)" if base.nil?
-        self.save
+        error = "Base did not respond to method #{self.method_name.to_sym}."
+        error += " (Base is nil)" if base.nil?
+        raise error
       end
     end
 
@@ -169,7 +167,11 @@ module QuickJobs
 
     def run_time
       return nil if (self.started_at.nil? || self.finished_at.nil?)
-      return self.finished_at - self.started_at
+      return (self.finished_at - self.started_at)*1000
+    end
+
+    def write_to_log
+      Rails.logger.info "JOBDATA: #{self.to_api.to_json}"
     end
 
     def to_api(opt=:default)
@@ -181,6 +183,7 @@ module QuickJobs
       ret[:method_name] = self.method_name
       ret[:started_at] = self.started_at.to_i
       ret[:finished_at] = self.finished_at.to_i
+      ret[:run_time] = (rt = self.run_time) ? rt.round(2) : nil
       ret[:state] = self.state
       ret[:error] = self.error
       return ret
