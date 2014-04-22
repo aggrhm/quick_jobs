@@ -117,7 +117,6 @@ module QuickJobs
             ensure
               job.finished_at = Time.now
               job.save
-              job.write_to_log
               job.handle_completed
               job.destroy
             end
@@ -168,10 +167,6 @@ module QuickJobs
     def run_time
       return nil if (self.started_at.nil? || self.finished_at.nil?)
       return (self.finished_at - self.started_at)*1000
-    end
-
-    def write_to_log
-      Rails.logger.info "JOBDATA: #{self.to_api.to_json}"
     end
 
     def to_api(opt=:default)
