@@ -99,27 +99,26 @@ module QuickJobs
 
       def process_ready_jobs(opts={})
         env = opts[:environment]
-        self.with_env(env).waiting.ready.each do |job|
-          QuickUtils.unit_of_work do
-            begin
-              status = job.set_running!
-              next if !status   # skip if can't claim
-              Rails.logger.info "#{job.summary}"
-              job.started_at = Time.now
-              job.run
-              job.state! :done
-              Rails.logger.info "done"
-            rescue Exception => e
-              job.state! :error
-              job.error = e.message
-              Rails.logger.info "ERROR: #{job.error}"
-              Rails.logger.info e.backtrace.join("\n\t")
-            ensure
-              job.finished_at = Time.now
-              job.save
-              job.handle_completed
-              job.destroy
-            end
+        crit = self.with_env(env).waiting.ready
+        while (crit.count > 0) do
+          job = crit.find_and_modify({"$set" => {st: STATES[:running]}}, new: true)
+          break if job.nil?
+          begin
+            Rails.logger.info "#{job.summary}"
+            job.started_at = Time.now
+            job.run
+            job.state! :done
+            Rails.logger.info "done"
+          rescue Exception => e
+            job.state! :error
+            job.error = e.message
+            Rails.logger.info "ERROR: #{job.error}"
+            Rails.logger.info e.backtrace.join("\n\t")
+          ensure
+            job.finished_at = Time.now
+            job.save
+            job.handle_completed
+            job.destroy
           end
         end
       end
@@ -130,7 +129,10 @@ module QuickJobs
 
     def set_running!
       # check if running
+      sum = self.summary
       self.reload
+      Rails.logger.info sum
+      puts "#{sum}\n#{self.summary}" if sum != self.summary
       return false if self.state? :running
       if defined? MongoMapper
         self.set(:st => STATES[:running])
@@ -145,14 +147,16 @@ module QuickJobs
     end
 
     def run
-      base = Object.const_get(self.instance_class)
-      base = base.find(self.instance_id) unless self.instance_id.nil?
-      if base.respond_to? self.method_name.to_sym
-        base.send self.method_name.to_sym, *self.args
-      else
-        error = "Base did not respond to method #{self.method_name.to_sym}."
-        error += " (Base is nil)" if base.nil?
-        raise error
+      QuickUtils.unit_of_work do
+        base = Object.const_get(self.instance_class)
+        base = base.find(self.instance_id) unless self.instance_id.nil?
+        if base.respond_to? self.method_name.to_sym
+          base.send self.method_name.to_sym, *self.args
+        else
+          error = "Base did not respond to method #{self.method_name.to_sym}."
+          error += " (Base is nil)" if base.nil?
+          raise error
+        end
       end
     end
 
