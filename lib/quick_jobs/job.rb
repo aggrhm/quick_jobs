@@ -148,7 +148,7 @@ module QuickJobs
 
     def run
       QuickUtils.unit_of_work do
-        base = Object.const_get(self.instance_class)
+        base = self.instance_class.constantize
         base = base.find(self.instance_id) unless self.instance_id.nil?
         if base.respond_to? self.method_name.to_sym
           base.send self.method_name.to_sym, *self.args
