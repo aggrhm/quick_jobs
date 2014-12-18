@@ -100,7 +100,7 @@ module QuickJobs
       def process_ready_jobs(opts={})
         env = opts[:environment]
         crit = self.with_env(env).waiting.ready
-        while (crit.count > 0) do
+        while (true) do
           job = crit.find_and_modify({"$set" => {st: STATES[:running]}}, new: true)
           break if job.nil?
           begin
