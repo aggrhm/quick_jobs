@@ -99,8 +99,10 @@ module QuickJobs
 
       def process_ready_jobs(opts={})
         env = opts[:environment]
+        bfn = opts[:break_if]
         crit = self.with_env(env).waiting.ready
         while (true) do
+          break if (bfn && bfn.call == true)
           job = crit.find_and_modify({"$set" => {st: STATES[:running]}}, new: true)
           break if job.nil?
           begin
@@ -109,7 +111,7 @@ module QuickJobs
             job.run
             job.state! :done
             Rails.logger.info "done"
-          rescue Exception => e
+          rescue => e
             job.state! :error
             job.error = e.message
             Rails.logger.info "ERROR: #{job.error}"
