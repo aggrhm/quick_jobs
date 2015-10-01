@@ -35,6 +35,7 @@ module QuickJobs
           attr_alias :error, :er
 
         elsif db == :mongoid
+          include MongoHelper::Model
           field :qn, as: :queue_name, type: String
           field :cn, as: :instance_class, type: String
           field :iid, as: :instance_id
