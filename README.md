@@ -65,7 +65,7 @@ end
 
 ### Processing Jobs in the Background
 
-The core to processing jobs in the background is to call `Job.process_ready_jobs` in a daemon process. Here's an example of a job runner using the QuickUtils TaskManager.
+The core to processing jobs in the background is to call `Job.process_ready_jobs` in a daemon process. Here's an example of a job runner using the QuickUtils TaskManager. Place the following in the file `script/job_processor`:
 
 ```ruby
 require 'quick_utils'
@@ -78,6 +78,11 @@ QuickUtils::TaskManager.run("job_processor") do |config|
     Job.process_ready_jobs(environment: config[:environment], break_if: lambda { mgr.state != :running })
   end
 end
+```
+And then execute the file with
+
+```
+bundle exec script/job_processor -e development restart
 ```
 
 This will check for and process any queued jobs every 3 seconds. It is safe to have multiple workers pulling jobs from the same queue.
