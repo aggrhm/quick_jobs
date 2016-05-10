@@ -46,11 +46,13 @@ module QuickJobs
           field :rna, as: :run_at, type: Time
           field :env, as: :env, type: String
           field :er, as: :error, type: String
+          field :bt, as: :backtrace, type: Array
 
           field :st_at, as: :started_at, type: Time
           field :fn_at, as: :finished_at, type: Time
 
           mongoid_timestamps!
+          index({qn: 1})
         end
 
         enum_methods! :state, STATES
@@ -63,6 +65,17 @@ module QuickJobs
         }
         scope :with_env, lambda {|env|
           where(:env => env.to_s.strip.downcase)
+        }
+        scope :in_queue, lambda {|qn|
+          if qn.is_a?(Array)
+            where(:qn => {'$in' => qn})
+          else
+            where(:qn => qn)
+          end
+        }
+        scope :not_in_queue, lambda {|qn|
+          qns = qn.is_a?(Array) ? qn : [qn]
+          where(:qn => {'$nin' => qns})
         }
       end
 
@@ -102,6 +115,9 @@ module QuickJobs
         env = opts[:environment]
         bfn = opts[:break_if]
         crit = self.with_env(env).waiting.ready
+        if opts[:job_scope]
+          crit = opts[:job_scope].call(crit)
+        end
         while (true) do
           break if (bfn && bfn.call == true)
           job = crit.find_and_modify({"$set" => {st: STATES[:running]}}, new: true)
@@ -115,6 +131,9 @@ module QuickJobs
           rescue => e
             job.state! :error
             job.error = e.message
+            job.recent_exception = e
+            # TODO: set backtrace with message and tabs and let
+            # handle_completed do logging
             Rails.logger.info "ERROR: #{job.error}"
             Rails.logger.info e.backtrace.join("\n\t")
           ensure
@@ -129,6 +148,7 @@ module QuickJobs
     end
 
     ## INSTANCE METHODS
+    attr_accessor :recent_exception
 
     def set_running!
       # check if running
