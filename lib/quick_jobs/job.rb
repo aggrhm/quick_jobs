@@ -170,16 +170,14 @@ module QuickJobs
     end
 
     def run
-      QuickUtils.unit_of_work do
-        base = self.instance_class.constantize
-        base = base.find(self.instance_id) unless self.instance_id.nil?
-        if base.respond_to? self.method_name.to_sym
-          base.send self.method_name.to_sym, *self.args
-        else
-          error = "Base did not respond to method #{self.method_name.to_sym}."
-          error += " (Base is nil)" if base.nil?
-          raise error
-        end
+      base = self.instance_class.constantize
+      base = base.find(self.instance_id) unless self.instance_id.nil?
+      if base.respond_to? self.method_name.to_sym
+        base.send self.method_name.to_sym, *self.args
+      else
+        error = "Base did not respond to method #{self.method_name.to_sym}."
+        error += " (Base is nil)" if base.nil?
+        raise error
       end
     end
 
