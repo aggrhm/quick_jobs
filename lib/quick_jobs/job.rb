@@ -4,10 +4,18 @@ module QuickJobs
     STATES = {:waiting => 1, :running => 2, :done => 3, :error => 4}
 
     def self.included(base)
+      base.send :include, QuickJobs::ModelBase
       base.extend ClassMethods
     end
 
     module ClassMethods
+
+      def quick_jobs_job!(opts={})
+        opts[:for] ||= :mongoid
+        if opts[:for] == :mongoid
+          quick_jobs_job_keys_for(:mongoid)
+        end
+      end
 
       def quick_jobs_job_keys_for(db)
         if db == :mongomapper
@@ -77,6 +85,9 @@ module QuickJobs
           qns = qn.is_a?(Array) ? qn : [qn]
           where(:qn => {'$nin' => qns})
         }
+        scope :with_error, lambda {
+          where(st: STATES[:error])
+        }
       end
 
       # add a job to a queue to be ran by a background runner
@@ -101,6 +112,9 @@ module QuickJobs
         job.env = Rails.env.to_s.strip.downcase
         job.state! :waiting
         job.save
+        if QuickJobs.options[:test_mode] == true
+          job.run
+        end
         #puts job.inspect
         return job
       end
@@ -122,26 +136,7 @@ module QuickJobs
           break if (bfn && bfn.call == true)
           job = crit.find_and_modify({"$set" => {st: STATES[:running]}}, new: true)
           break if job.nil?
-          begin
-            Rails.logger.info "#{job.summary}"
-            job.started_at = Time.now
-            job.run
-            job.state! :done
-            Rails.logger.info "done"
-          rescue => e
-            job.state! :error
-            job.error = e.message
-            job.recent_exception = e
-            # TODO: set backtrace with message and tabs and let
-            # handle_completed do logging
-            Rails.logger.info "ERROR: #{job.error}"
-            Rails.logger.info e.backtrace.join("\n\t")
-          ensure
-            job.finished_at = Time.now
-            job.save
-            job.handle_completed
-            job.destroy
-          end
+          job.run
         end
       end
 
@@ -170,6 +165,10 @@ module QuickJobs
     end
 
     def run
+      Rails.logger.info "#{self.summary}"
+      self.started_at = Time.now
+      self.state! :running
+      self.report_event 'started'
       base = self.instance_class.constantize
       base = base.find(self.instance_id) unless self.instance_id.nil?
       if base.respond_to? self.method_name.to_sym
@@ -179,14 +178,26 @@ module QuickJobs
         error += " (Base is nil)" if base.nil?
         raise error
       end
+      self.state! :done
+    rescue => e
+      self.state! :error
+      self.error = e.message
+      self.recent_exception = e
+      Rails.logger.info "ERROR: #{self.error}"
+      Rails.logger.info e.backtrace.join("\n\t")
+    ensure
+      self.finished_at = Time.now
+      self.save
+      if self.state?(:done)
+        self.report_event 'done'
+      elsif self.state?(:error)
+        self.report_event 'error'
+      end
+      self.destroy unless (QuickJobs.options[:test_mode] == true)
     end
 
     def summary
       "#{Time.now.to_s}: JOB[#{self.env}|#{self.queue_name}|#{self.id.to_s}]: #{self.instance_class}:#{self.instance_id.nil? ? 'class' : self.instance_id.to_s} . #{self.method_name} ( #{self.args.join(',')} )"
-    end
-
-    def handle_completed
-      # override with custom handler
     end
 
     def run_time
