@@ -1,5 +1,6 @@
 require "quick_jobs/version"
 require "quick_jobs/job"
+require "quick_jobs/processable"
 
 module QuickJobs
   # Your code goes here...
