@@ -73,7 +73,8 @@ module QuickJobs
               end
             end
           end
-          self.process_each!(scope, opts, &block)
+          # prevent repeat for now until can handle process errors
+          #self.process_each!(scope, opts, &block)
         end
 
       end   # END CLASS_METHODS
