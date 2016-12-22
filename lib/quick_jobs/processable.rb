@@ -57,24 +57,23 @@ module QuickJobs
           self.transaction do
             models = is_processable.merge(scope)
             ids = models.limit(popts[:lock_limit]).lock("FOR UPDATE SKIP LOCKED").pluck(:id)
-            return if ids.empty?
-            self.where(id: ids).update_all(processing_started_at: Time.now, processing_id: opts[:id])
+            self.where(id: ids).update_all(processing_started_at: Time.now, processing_id: opts[:id]) if !ids.empty?
           end
+          return if ids.empty?
           models = self.find(ids)
           models.each do |m|
             begin
               block.call(m)
-            rescue => ex
-              Rails.logger.info ex.message
-              Rails.logger.info ex.backtrace.join("\n\t")
-            ensure
               if m.processing_started_at.present?
                 m.update_column(:processing_started_at, nil)
               end
+            rescue => ex
+              Rails.logger.info ex.message
+              Rails.logger.info ex.backtrace.join("\n\t")
             end
           end
-          # prevent repeat for now until can handle process errors
-          #self.process_each!(scope, opts, &block)
+
+          self.process_each!(scope, opts, &block)
         end
 
       end   # END CLASS_METHODS
