@@ -68,6 +68,7 @@ module QuickJobs
                 m.update_column(:processing_started_at, nil)
               end
             rescue => ex
+              Rails.logger.info "PROCESSABLE: Error processing model #{m.class.to_s}:#{m.id.to_s}."
               Rails.logger.info ex.message
               Rails.logger.info ex.backtrace.join("\n\t")
             end
