@@ -55,6 +55,7 @@ module QuickJobs
           field :env, as: :env, type: String
           field :er, as: :error, type: String
           field :bt, as: :backtrace, type: Array
+          field :ats, as: :attempts, type: Integer, default: 0
 
           field :st_at, as: :started_at, type: Time
           field :fn_at, as: :finished_at, type: Time
@@ -111,6 +112,7 @@ module QuickJobs
         end
         job.env = Rails.env.to_s.strip.downcase
         job.state! :waiting
+        job.attempts = 0
         job.save
         if QuickJobs.options[:test_mode] == true
           job.run
@@ -185,15 +187,18 @@ module QuickJobs
       self.recent_exception = e
       Rails.logger.info "ERROR: #{self.error}"
       Rails.logger.info e.backtrace.join("\n\t")
+      self.report_event 'error'
+      # queue for retry
+      self.state! :waiting
+      self.run_at = Time.now + 1.minute
     ensure
+      self.attempts += 1
       self.finished_at = Time.now
       self.save
       if self.state?(:done)
         self.report_event 'done'
-      elsif self.state?(:error)
-        self.report_event 'error'
+        self.destroy unless (QuickJobs.options[:test_mode] == true)
       end
-      self.destroy unless (QuickJobs.options[:test_mode] == true)
     end
 
     def summary
