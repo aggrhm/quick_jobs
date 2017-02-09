@@ -9,7 +9,7 @@ module QuickJobs
     module ClassMethods
 
       def processable!
-        include QuickJobs::ModelBase
+        include QuickScript::Eventable
         orm = self.processable_orm
         case orm
         when :active_record

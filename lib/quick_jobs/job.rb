@@ -4,13 +4,13 @@ module QuickJobs
     STATES = {:waiting => 1, :running => 2, :done => 3, :error => 4}
 
     def self.included(base)
-      base.send :include, QuickJobs::ModelBase
       base.extend ClassMethods
     end
 
     module ClassMethods
 
       def quick_jobs_job!(opts={})
+        include QuickScript::Eventable
         opts[:for] ||= :mongoid
         if opts[:for] == :mongoid
           quick_jobs_job_keys_for(:mongoid)
@@ -43,7 +43,7 @@ module QuickJobs
           attr_alias :error, :er
 
         elsif db == :mongoid
-          include MongoHelper::Model
+          include QuickScript::Model
           field :qn, as: :queue_name, type: String
           field :cn, as: :instance_class, type: String
           field :iid, as: :instance_id
@@ -60,7 +60,7 @@ module QuickJobs
           field :st_at, as: :started_at, type: Time
           field :fn_at, as: :finished_at, type: Time
 
-          mongoid_timestamps!
+          include Mongoid::Timestamps::Short
           index({qn: 1})
         end
 
