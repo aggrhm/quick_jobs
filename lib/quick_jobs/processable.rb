@@ -1,3 +1,5 @@
+require 'timeout'
+
 module QuickJobs
 
   module Processable
@@ -53,6 +55,7 @@ module QuickJobs
 
         def process_each!(scope, opts={}, &block)
           popts = self.processing_options
+          timeout = opts[:timeout] || popts[:timeout]
 
           loop do
             ids = []
@@ -65,7 +68,9 @@ module QuickJobs
             models = self.find(ids)
             models.each do |m|
               begin
-                block.call(m)
+                Timeout::timeout(timeout.seconds.to_i) do
+                  block.call(m)
+                end
                 if m.processing_started_at.present?
                   m.update_column(:processing_started_at, nil)
                 end
