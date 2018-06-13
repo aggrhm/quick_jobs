@@ -28,6 +28,22 @@ module QuickJobs
       @options ||= {test_mode: false}
     end
 
+    def redis_client
+      @redis_client
+    end
+
+    def redis_client=(val)
+      @redis_client=val
+    end
+
+    def exception_handler
+      @exception_handler
+    end
+
+    def on_exception(&blk)
+      @exception_handler = blk
+    end
+
     def notify_connection(channel, opts={})
       ActiveRecord::Base.connection_pool.with_connection do |connection|
         conn = connection.instance_variable_get(:@connection)
@@ -53,14 +69,29 @@ module QuickJobs
               break
             end
             if logger
-              logger.info e.message
-              logger.info e.backtrace.join("\n\t")
+              logger.info ex.message
+              logger.info ex.backtrace.join("\n\t")
             end
             sleep 1
           end
         end
         conn.async_exec("UNLISTEN *")
       end
+    end
+
+    def notify_model_updated(msg)
+      return if msg.nil?
+      msg[:action] ||= 'updated'
+      msg[:event] = "#{msg[:model]}.#{msg[:action]}"
+      r = redis_client
+      r.publish('model.updated', msg.to_json)
+    rescue => ex
+      QuickJobs.log_exception(ex)
+    end
+
+    def log_exception(ex)
+      return if exception_handler.nil?
+      exception_handler.call(ex)
     end
 
   end
