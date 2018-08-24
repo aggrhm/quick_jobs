@@ -35,20 +35,7 @@ module QuickJobs
     end ## END CLASS METHODS
 
     def meta_graph_updated_for(*models)
-      t = Time.now
-      models.each do |model|
-        next if model.nil?
-        if model.respond_to?(:update_all)
-          model.update_all(meta_graph_updated_at: t)
-        else
-          model.update_attribute(:meta_graph_updated_at, t)
-        end
-      end
-      QuickJobs.notify_connection("meta_graph_updated")
-    rescue => ex
-      Rails.logger.info "Could not update meta graph."
-      Rails.logger.info ex.message
-      Rails.logger.info ex.backtrace.join("\n\t")
+      QuickJobs.meta_graph_updated_for(*models)
     end
 
   end

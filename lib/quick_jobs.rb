@@ -89,6 +89,67 @@ module QuickJobs
       QuickJobs.log_exception(ex)
     end
 
+    def run_later(inst, method, data)
+      # build job
+      job = {}
+      if inst.class == Class
+        job[:instance_class] = inst.to_s
+      else
+        job[:instance_class] = inst.class.to_s
+        job[:instance_id] = inst.id
+      end
+      job[:method_name] = method.to_s
+      job[:data] = data
+      # add to redis list jobs
+      r = redis_client
+      r.rpush("jobs", job.to_json)
+    rescue => ex
+      QuickJobs.log_exception(ex)
+    end
+
+    def process_jobs(opts)
+      r = redis_client
+      timeout = opts[:timeout] || 0
+      loop do
+        #puts "Waiting for job"
+        js = r.blpop("jobs", timeout)
+        if js.present?
+          #puts js.inspect
+          job = JSON.parse(js.last).with_indifferent_access
+          process_job(job)
+        end
+      end
+    end
+
+    def process_job(job)
+      inst = job[:instance_class].constantize
+      if iid = job[:instance_id]
+        inst = inst.find(iid)
+      end
+      method = job[:method_name]
+      data = job[:data]
+      data = data.with_indifferent_access if data.is_a?(Hash)
+      inst.send(method, data)
+    rescue => ex
+      QuickJobs.log_exception(ex)
+    end
+
+    def meta_graph_updated_for(*models)
+      t = Time.now
+      models.each do |model|
+        next if model.nil?
+        if model.respond_to?(:update_all)
+          model.update_all(meta_graph_updated_at: t)
+        else
+          model.update_attribute(:meta_graph_updated_at, t)
+        end
+      end
+      QuickJobs.notify_connection("meta_graph_updated")
+    rescue => ex
+      Rails.logger.info "Could not update meta graph."
+      QuickJobs.log_exception(ex)
+    end
+
     def log_exception(ex)
       return if exception_handler.nil?
       exception_handler.call(ex)
