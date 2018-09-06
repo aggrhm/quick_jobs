@@ -110,12 +110,14 @@ module QuickJobs
     def process_jobs(opts)
       r = redis_client
       timeout = opts[:timeout] || 0
+      before_proc_fn = opts[:before_process]
       loop do
         #puts "Waiting for job"
         js = r.blpop("jobs", timeout)
         if js.present?
           #puts js.inspect
           job = JSON.parse(js.last).with_indifferent_access
+          before_proc_fn.call(job) if before_proc_fn.present?
           process_job(job)
         end
       end
