@@ -89,7 +89,7 @@ module QuickJobs
       QuickJobs.log_exception(ex)
     end
 
-    def run_later(inst, method, data)
+    def run_later(inst, method, data={})
       # build job
       job = {}
       if inst.class == Class
@@ -131,7 +131,11 @@ module QuickJobs
       method = job[:method_name]
       data = job[:data]
       data = data.with_indifferent_access if data.is_a?(Hash)
-      inst.send(method, data)
+      if inst.method(method).arity == 0
+        inst.send(method)
+      else
+        inst.send(method, data)
+      end
     rescue => ex
       QuickJobs.log_exception(ex)
     end
