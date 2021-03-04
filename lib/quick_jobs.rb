@@ -146,11 +146,13 @@ module QuickJobs
         next if model.nil?
         if model.respond_to?(:update_all)
           model.update_all(meta_graph_updated_at: t)
+          QuickJobs.run_later model.model, :process_meta if model.respond_to?(:model)
         else
           model.update_attribute(:meta_graph_updated_at, t)
+          QuickJobs.run_later model, :update_meta
         end
       end
-      QuickJobs.notify_connection("meta_graph_updated")
+      #QuickJobs.notify_connection("meta_graph_updated")
     rescue => ex
       Rails.logger.info "Could not update meta graph."
       QuickJobs.log_exception(ex)
