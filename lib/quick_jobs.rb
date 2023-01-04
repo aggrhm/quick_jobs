@@ -111,33 +111,44 @@ module QuickJobs
       r = redis_client
       timeout = opts[:timeout] || 0
       before_proc_fn = opts[:before_process]
+      after_proc_fn = opts[:after_process]
       loop do
         #puts "Waiting for job"
         js = r.blpop("jobs", timeout)
         if js.present?
           #puts js.inspect
           job = JSON.parse(js.last).with_indifferent_access
-          before_proc_fn.call(job) if before_proc_fn.present?
-          process_job(job)
+          begin
+            before_proc_fn.call(job) if before_proc_fn.present?
+            jm = process_job(job)
+            after_proc_fn.call(job, jm) if after_proc_fn.present?
+          rescue => ex
+            QuickJobs.log_exception(ex)
+          end
         end
       end
     end
 
     def process_job(job)
-      inst = job[:instance_class].constantize
-      if iid = job[:instance_id]
-        inst = inst.find(iid)
+      ret = {error: nil}
+      begin
+        inst = job[:instance_class].constantize
+        if iid = job[:instance_id]
+          inst = inst.find(iid)
+        end
+        method = job[:method_name]
+        data = job[:data]
+        data = data.with_indifferent_access if data.is_a?(Hash)
+        if inst.method(method).arity == 0
+          inst.send(method)
+        else
+          inst.send(method, data)
+        end
+      rescue => ex
+        ret[:error] = ex
+        QuickJobs.log_exception(ex)
       end
-      method = job[:method_name]
-      data = job[:data]
-      data = data.with_indifferent_access if data.is_a?(Hash)
-      if inst.method(method).arity == 0
-        inst.send(method)
-      else
-        inst.send(method, data)
-      end
-    rescue => ex
-      QuickJobs.log_exception(ex)
+      return ret
     end
 
     def meta_graph_updated_for(*models)
